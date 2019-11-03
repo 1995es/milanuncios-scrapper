@@ -1,1 +1,3 @@
-URL="https://api.airtable.com/v0/appEyrtwpdMMC8rni/Ads"
+SELENIUM_DRIVERS_PATH=""
+AIRTABLE_URL=""
+AIRTABLE_API_KEY=""

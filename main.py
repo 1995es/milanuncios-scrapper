@@ -1,78 +1,77 @@
 import time
 from selenium import webdriver
-from bs4 import BeautifulSoup
-from selenium.webdriver.firefox.options import Options
+from selenium.common.exceptions import NoSuchElementException
 import re
 from airtable import create_record, get_records
-
-# Optional argument, if not specified will search path.
-opts = Options()
-opts.set_headless = True
+from constants import SELENIUM_DRIVERS_PATH
 
 URL = 'https://www.milanuncios.com/entradas/granada-sound.htm?fromSearch=1&demanda=n'
 
-chrome_options = webdriver.ChromeOptions()
-chrome_options.add_argument("--incognito")
-chrome_options.add_argument("--enable-javascript")
-chrome_options.add_argument("--user-data-dir=seleniumchrome3") 
-driver = webdriver.Firefox('/Users/marcosandreo/workspace/python/selenium-drivers', options=opts)
-#driver = webdriver.Chrome('/Users/marcosandreo/workspace/python/selenium-drivers/chromedriver', options=chrome_options) 
-driver.get(URL)
+# Configure the web driver
+# Firefox
+firefox_options = webdriver.FirefoxOptions()
+firefox_options.headless = True
+browser = webdriver.Firefox(SELENIUM_DRIVERS_PATH, options=firefox_options)
 
-# Set implicit wait in case elements are not readily available
-driver.implicitly_wait(5)
+# Chrome
+# chrome_options = webdriver.ChromeOptions()
+# chrome_options.add_argument("--incognito")
+# chrome_options.add_argument("--enable-javascript")
+# chrome_options.add_argument("--user-data-dir=seleniumchrome3")
+# browser = webdriver.Chrome(SELENIUM_DRIVERS_PATH, options=chrome_options)
 
-# Download the actual items
-items = get_records()
+# Get and set implicit wait in case elements are not readily available
+browser.get(URL)
+browser.implicitly_wait(5)
 
-#time.sleep(5)  # Let the user actually see something!
+# Get the saved items' list
+records = get_records()
 
-aditem_list = driver.find_elements_by_class_name('aditem') 
-for aditem in aditem_list:
-    #print(ad.text)
+ad_list = browser.find_elements_by_class_name('aditem')
+for ad_item in ad_list:
     try:
-        id = aditem.find_element_by_class_name('x5').text
-    except Exception:
+        id = ad_item.find_element_by_class_name('x5').text
+    except NoSuchElementException as exception:
+        print("ERROR: ID not found, skip!")
         id = None
 
-    if(id is None):
+    if id is None:
         continue
 
-    # Look for the ID in the downloaded ID list
-    # If already exists, skip it
-    exist = False
-    for it in items:
-        if it == id:
-            exist = True
+    # If the 'id' exists in the list, skip it 
+    exists = False
+    for record_id in records:
+        if record_id == id:
+            exists = True
             break
 
-    if(exist):
+    if exists:
         continue
-        
+
     try:
-        ad = aditem.find_element_by_class_name('aditem-detail') 
-    except Exception:
+        ad = ad_item.find_element_by_class_name('aditem-detail')
+    except NoSuchElementException as exception:
+        print("ERROR: aditem-detail not found, skip!")
         continue
-   
-    title = None
-    href = None
+
     try:
         item = ad.find_element_by_class_name('aditem-detail-title')
         title = item.text
         href = item.get_attribute('href')
-    except Exception:
-        print(Exception)
-        
+    except NoSuchElementException as exception:
+        title = None
+        href = None
+
     try:
         desc = ad.find_element_by_class_name("tx").text
-    except Exception:
+    except NoSuchElementException as exception:
         desc = None
+
     try:
-        price = ad.find_element_by_class_name("aditem-price")
-        price = price.text
-    except Exception:
+        price = ad.find_element_by_class_name("aditem-price").text
+    except NoSuchElementException as exception:
         price = None
-    
+
     ad_content = {
         "id": id,
         "title": title,
@@ -83,5 +82,5 @@ for aditem in aditem_list:
     create_record(ad_content)
 
 time.sleep(5)
-driver.quit()
+browser.quit()
 print("Bye!")
